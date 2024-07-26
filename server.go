@@ -1,72 +1,93 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
+
+	"github.com/gorilla/websocket"
+)
+
+type PlayRequest struct {
+	VideoID string `json:"videoID"`
+}
+
+var (
+	queue []YTSong                 // The song queue.
+	conns map[*websocket.Conn]bool // Set of Websocket connections to notify with queue updates
+	notif chan struct{}            // Notifies player to play again after it empties
+	mu    sync.Mutex               // mutex for good health
+
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
 )
 
 func main() {
+	conns = make(map[*websocket.Conn]bool)
+	notif = make(chan struct{}, 1)
+	defer close(notif)
 
-	// The song queue.
-	var mtx sync.Mutex
-	var queue []YTSong
-	notif := make(chan struct{}, 1)
+	go player_loop()
 
-	go func() {
-		var curr_song YTSong
-		for range notif {
-			mtx.Lock()
-			for len(queue) != 0 {
-				curr_song, queue = queue[0], queue[1:]
-				mtx.Unlock()
-
-				fmt.Printf("Playing song: %v\n", curr_song.VideoID)
-				play(curr_song) // blocks
-				mtx.Lock()
-			}
-			mtx.Unlock()
-		}
-	}()
-
-	type PlayRequest struct {
-		VideoID string `json:"videoID"`
-	}
 	http.HandleFunc("/queue", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
+			return
+		}
 
-		switch r.Method {
-		case http.MethodPost:
+		mu.Lock()
+		conns[conn] = true
+		mu.Unlock()
+		defer func() {
+			mu.Lock()
+			delete(conns, conn)
+			mu.Unlock()
+			conn.Close()
+		}()
+
+		for {
 			var body PlayRequest
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, "Invalid request body", http.StatusBadRequest)
-				return
+			if err := conn.ReadJSON(&body); err != nil {
+				break
 			}
 
 			song := YTSong{VideoID: body.VideoID, loaded: make(chan struct{})}
 			go load(song)
 
-			mtx.Lock()
+			mu.Lock()
 			queue = append(queue, song)
 			if len(notif) == 0 {
 				notif <- struct{}{}
 			}
-			mtx.Unlock()
-
-			w.WriteHeader(http.StatusOK)
-			fmt.Printf("Added to queue: %s\n", song.VideoID)
-
-		case http.MethodGet:
-			mtx.Lock()
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(queue)
-			mtx.Unlock()
-
-		default:
-			http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+			for conn := range conns {
+				conn.WriteJSON(queue)
+			}
+			mu.Unlock()
 		}
 	})
 
 	http.ListenAndServe(":8212", nil)
+}
+
+func player_loop() {
+	var curr_song YTSong
+	for {
+		<-notif
+		for {
+			mu.Lock()
+			if len(queue) == 0 {
+				mu.Unlock()
+				break
+			}
+			curr_song, queue = queue[0], queue[1:]
+
+			for conn := range conns {
+				conn.WriteJSON(queue)
+			}
+			mu.Unlock()
+
+			play(curr_song) // blocks
+		}
+	}
 }

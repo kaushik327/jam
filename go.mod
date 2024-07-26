@@ -4,6 +4,7 @@ go 1.22.1
 
 require (
 	github.com/gopxl/beep v1.4.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/kkdai/youtube/v2 v2.10.1
 )
 
