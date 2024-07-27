@@ -38,6 +38,7 @@ func main() {
 
 		mu.Lock()
 		conns[conn] = true
+		conn.WriteJSON(queue)
 		mu.Unlock()
 		defer func() {
 			mu.Lock()
@@ -65,6 +66,10 @@ func main() {
 			}
 			mu.Unlock()
 		}
+	})
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
 	})
 
 	http.ListenAndServe(":8212", nil)

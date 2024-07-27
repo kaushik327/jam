@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jam</title>
+</head>
+
+<body>
+    <h1>jam</h1>
+    <ul id="queue"></ul>
+
+    <ul>
+        <li>
+            <form id="song-form">
+                <input type="text" id="videoID" placeholder="Video ID" required>
+                <button type="submit">+</button>
+            </form>
+        </li>
+    </ul>
+
+
+    <script>
+        const ws = new WebSocket("ws://" + window.location.host + "/queue");
+
+        ws.onmessage = function (event) {
+            const queue = JSON.parse(event.data);
+            const queueList = document.getElementById("queue");
+            queueList.innerHTML = "";
+            queue.forEach(song => {
+                const listItem = document.createElement("li");
+                listItem.textContent = song.videoID;
+                queueList.appendChild(listItem);
+            });
+        };
+
+        document.getElementById("song-form").addEventListener("submit", function (event) {
+            event.preventDefault();
+            const videoID = document.getElementById("videoID").value;
+            ws.send(JSON.stringify({ videoID: videoID }));
+            document.getElementById("videoID").value = "";
+        });
+    </script>
+</body>
+
+</html>
