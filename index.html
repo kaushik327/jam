@@ -10,7 +10,7 @@
 <body>
     <h1>jam</h1>
 
-    <p>Now playing: <span id="now_playing"></span></p>
+    <p>Now playing: <span id="now_playing"></span> <button id="toggle">f</button> </p>
 
     <ul id="queue"></ul>
 
@@ -32,21 +32,27 @@
 
             const queueList = document.getElementById("queue");
             queueList.innerHTML = "";
-            message.queue.forEach(song => {
-                const listItem = document.createElement("li");
-                listItem.textContent = song.videoID;
-                queueList.appendChild(listItem);
-            });
-
+            if (message.queue) {
+                message.queue.forEach(song => {
+                    const listItem = document.createElement("li");
+                    listItem.textContent = song.videoID;
+                    queueList.appendChild(listItem);
+                });
+            }
             document.getElementById("now_playing").innerText = message.now_playing.videoID
+            document.getElementById("toggle").innerText = (message.paused) ? "▶" : "⏸"
         };
 
         document.getElementById("song-form").addEventListener("submit", function (event) {
             event.preventDefault();
             const videoID = document.getElementById("videoID").value;
-            ws.send(JSON.stringify({ videoID: videoID }));
+            ws.send(JSON.stringify({ type: "Add", videoID: videoID }));
             document.getElementById("videoID").value = "";
         });
+
+        document.getElementById("toggle").onclick = function (event) {
+            ws.send(JSON.stringify({ type: "Toggle" }))
+        }
     </script>
 </body>
 

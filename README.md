@@ -6,10 +6,24 @@ Run with `go run .` in the repository's root directory, then send jsons through 
 
 ```
 send a video id
-<- {"videoID": "FNt8xXCJplY"}
+<- {"type": "Add", "videoID": "FNt8xXCJplY"}
 
 you're sent the whole queue whenever it changes
 -> {
+    "paused": false,
+    "now_playing": {"videoID": "FNt8xXCJplY"},
+    "queue": [
+        {"videoID": "FNt8xXCJplY"},
+        {"videoID": "FNt8xXCJplY"},
+        {"videoID": "FNt8xXCJplY"}
+    ]
+}
+
+pause the song
+<- {"type": "Toggle"}
+
+-> {
+    "paused": true,
     "now_playing": {"videoID": "FNt8xXCJplY"},
     "queue": [
         {"videoID": "FNt8xXCJplY"},
