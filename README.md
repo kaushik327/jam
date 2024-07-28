@@ -9,5 +9,12 @@ send a video id
 <- {"videoID": "FNt8xXCJplY"}
 
 you're sent the whole queue whenever it changes
--> [{"videoID": "FNt8xXCJplY"}, {"videoID": "FNt8xXCJplY"}, {"videoID": "FNt8xXCJplY"}]
+-> {
+    "now_playing": {"videoID": "FNt8xXCJplY"},
+    "queue": [
+        {"videoID": "FNt8xXCJplY"},
+        {"videoID": "FNt8xXCJplY"},
+        {"videoID": "FNt8xXCJplY"}
+    ]
+}
 ```

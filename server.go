@@ -11,11 +11,17 @@ type PlayRequest struct {
 	VideoID string `json:"videoID"`
 }
 
+type QueueResponse struct {
+	NowPlaying YTSong   `json:"now_playing"`
+	Queue      []YTSong `json:"queue"`
+}
+
 var (
-	queue []YTSong                 // The song queue.
-	conns map[*websocket.Conn]bool // Set of Websocket connections to notify with queue updates
-	notif chan struct{}            // Notifies player to play again after it empties
-	mu    sync.Mutex               // mutex for good health
+	now_playing YTSong                   // Song now playing
+	queue       []YTSong                 // The song queue.
+	conns       map[*websocket.Conn]bool // Set of Websocket connections to notify with queue updates
+	notif       chan struct{}            // Notifies player to play again after it empties
+	mu          sync.Mutex               // mutex for good health
 
 	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
@@ -38,7 +44,7 @@ func main() {
 
 		mu.Lock()
 		conns[conn] = true
-		conn.WriteJSON(queue)
+		conn.WriteJSON(QueueResponse{Queue: queue, NowPlaying: now_playing})
 		mu.Unlock()
 		defer func() {
 			mu.Lock()
@@ -62,7 +68,7 @@ func main() {
 				notif <- struct{}{}
 			}
 			for conn := range conns {
-				conn.WriteJSON(queue)
+				conn.WriteJSON(QueueResponse{Queue: queue, NowPlaying: now_playing})
 			}
 			mu.Unlock()
 		}
@@ -76,23 +82,26 @@ func main() {
 }
 
 func player_loop() {
-	var curr_song YTSong
 	for {
 		<-notif
 		for {
 			mu.Lock()
 			if len(queue) == 0 {
+				now_playing = YTSong{}
+				for conn := range conns {
+					conn.WriteJSON(QueueResponse{Queue: queue, NowPlaying: now_playing})
+				}
 				mu.Unlock()
 				break
 			}
-			curr_song, queue = queue[0], queue[1:]
+			now_playing, queue = queue[0], queue[1:]
 
 			for conn := range conns {
-				conn.WriteJSON(queue)
+				conn.WriteJSON(QueueResponse{Queue: queue, NowPlaying: now_playing})
 			}
 			mu.Unlock()
 
-			play(curr_song) // blocks
+			play(now_playing) // blocks
 		}
 	}
 }

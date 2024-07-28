@@ -9,6 +9,9 @@
 
 <body>
     <h1>jam</h1>
+
+    <p>Now playing: <span id="now_playing"></span></p>
+
     <ul id="queue"></ul>
 
     <ul>
@@ -25,14 +28,17 @@
         const ws = new WebSocket("ws://" + window.location.host + "/queue");
 
         ws.onmessage = function (event) {
-            const queue = JSON.parse(event.data);
+            const message = JSON.parse(event.data);
+
             const queueList = document.getElementById("queue");
             queueList.innerHTML = "";
-            queue.forEach(song => {
+            message.queue.forEach(song => {
                 const listItem = document.createElement("li");
                 listItem.textContent = song.videoID;
                 queueList.appendChild(listItem);
             });
+
+            document.getElementById("now_playing").innerText = message.now_playing.videoID
         };
 
         document.getElementById("song-form").addEventListener("submit", function (event) {
