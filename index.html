@@ -2,58 +2,68 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jam</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="//unpkg.com/alpinejs" defer></script>
+  <title>Jam</title>
 </head>
 
 <body>
-    <h1>jam</h1>
+  <h1>jam</h1>
 
-    <p>Now playing: <span id="now_playing"></span> <button id="toggle">f</button> </p>
-
-    <ul id="queue"></ul>
-
+  <div x-data="App">
+    <p>
+      Now playing:
+      <span x-text="now_playing.videoID"></span>
+      <button x-text="paused ? '▶' : '⏸'" x-on:click="toggle"></button>
+    </p>
     <ul>
-        <li>
-            <form id="song-form">
-                <input type="text" id="videoID" placeholder="Video ID" required>
-                <button type="submit">+</button>
-            </form>
-        </li>
+      <template x-for="song in queue">
+        <li x-text="song.videoID"></li>
+      </template>
     </ul>
 
+    <ul>
+      <li>
+        <form x-on:submit.prevent="add_song">
+          <input type="text" placeholder="Video ID" x-model="videoID" required>
+          <button type="submit">+</button>
+        </form>
+      </li>
+    </ul>
+  </div>
 
-    <script>
-        const ws = new WebSocket("ws://" + window.location.host + "/queue");
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.data("App", () => ({
+        paused: false,
+        now_playing: {},
+        queue: [],
+        ws: null,
+        videoID: '',
 
-        ws.onmessage = function (event) {
+        init() {
+          this.ws = new WebSocket(`ws://${window.location.host}/queue`);
+          this.ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
+            this.queue = message.queue;
+            this.now_playing = message.now_playing;
+            this.paused = message.paused;
+          };
+        },
 
-            const queueList = document.getElementById("queue");
-            queueList.innerHTML = "";
-            if (message.queue) {
-                message.queue.forEach(song => {
-                    const listItem = document.createElement("li");
-                    listItem.textContent = song.videoID;
-                    queueList.appendChild(listItem);
-                });
-            }
-            document.getElementById("now_playing").innerText = message.now_playing.videoID
-            document.getElementById("toggle").innerText = (message.paused) ? "▶" : "⏸"
-        };
+        add_song() {
+          this.ws.send(JSON.stringify({type: "Add", videoID: this.videoID}));
+          this.videoID = '';
+        },
 
-        document.getElementById("song-form").addEventListener("submit", function (event) {
-            event.preventDefault();
-            const videoID = document.getElementById("videoID").value;
-            ws.send(JSON.stringify({ type: "Add", videoID: videoID }));
-            document.getElementById("videoID").value = "";
-        });
-
-        document.getElementById("toggle").onclick = function (event) {
-            ws.send(JSON.stringify({ type: "Toggle" }))
+        toggle() {
+          this.ws.send(JSON.stringify({type: "Toggle"}))
         }
-    </script>
+      }))
+    });
+
+  </script>
 </body>
 
 </html>
