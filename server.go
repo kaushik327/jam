@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"sync"
 
@@ -95,7 +96,9 @@ func main() {
 		http.ServeFile(w, r, "index.html")
 	})
 
-	http.ListenAndServe(":8212", nil)
+	if err := http.ListenAndServe(":8212", nil); err != nil {
+		log.Fatalf("Failed to start backend: %v", err)
+	}
 }
 
 func player_loop() {
